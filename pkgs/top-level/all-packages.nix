@@ -18201,6 +18201,8 @@ with pkgs;
 
   libyaml = callPackage ../development/libraries/libyaml { };
 
+  rtrlib = callPackage ../development/libraries/rtrlib { };
+
   libyamlcpp = callPackage ../development/libraries/libyaml-cpp { };
 
   libyamlcpp_0_3 = callPackage ../development/libraries/libyaml-cpp/0.3.0.nix { };
