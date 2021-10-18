@@ -21112,6 +21112,8 @@ with pkgs;
 
   qremotecontrol-server = callPackage ../servers/misc/qremotecontrol-server { };
 
+  frrouting = callPackage ../servers/frrouting { };
+
   rabbitmq-server = callPackage ../servers/amqp/rabbitmq-server {
     inherit (darwin.apple_sdk.frameworks) AppKit Carbon Cocoa;
   };
