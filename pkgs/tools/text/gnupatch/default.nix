@@ -53,6 +53,7 @@ stdenv.mkDerivation rec {
 
     license = lib.licenses.gpl3Plus;
 
+    mainProgram = "patch";
     maintainers = [ ];
     platforms = lib.platforms.all;
   };
