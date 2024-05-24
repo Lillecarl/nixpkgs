@@ -54,6 +54,8 @@ self: super: {
 
     plpgsql_check = super.callPackage ./plpgsql_check.nix { };
 
+    pllua = super.callPackage ./pllua.nix { };
+
     plr = super.callPackage ./plr.nix { };
 
     plv8 = super.callPackage ./plv8 { };
