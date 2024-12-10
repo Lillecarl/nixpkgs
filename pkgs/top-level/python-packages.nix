@@ -11752,6 +11752,8 @@ self: super: with self; {
 
   pyialarm = callPackage ../development/python-modules/pyialarm { };
 
+  pyiceberg = callPackage ../development/python-modules/pyiceberg { };
+
   pyicloud = callPackage ../development/python-modules/pyicloud { };
 
   pyicu = callPackage ../development/python-modules/pyicu { };
@@ -14702,6 +14704,8 @@ self: super: with self; {
   simpful = callPackage ../development/python-modules/simpful { };
 
   simpy = callPackage ../development/python-modules/simpy { };
+
+  simsimd = callPackage ../development/python-modules/simsimd { };
 
   single-source = callPackage ../development/python-modules/single-source { };
 
