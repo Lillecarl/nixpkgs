@@ -12,17 +12,16 @@
   mimalloc,
   mpv,
   mpv-unwrapped,
-  xdg-user-dirs,
 }:
 flutter324.buildFlutterApplication rec {
   pname = "kazumi";
-  version = "1.4.5";
+  version = "1.4.6";
 
   src = fetchFromGitHub {
     owner = "Predidit";
     repo = "Kazumi";
     tag = version;
-    hash = "sha256-CbfNvLJrGjJAWSeHejtHG0foSGmjpJtvbWvK994q4uQ=";
+    hash = "sha256-NB6veMxAbG4YB6Io+HNLK/N8irF8g+Vj0r5L94JG//A=";
   };
 
   pubspecLock = lib.importJSON ./pubspec.lock.json;
@@ -108,10 +107,6 @@ flutter324.buildFlutterApplication rec {
   postInstall = ''
     install -Dm0644 ./assets/linux/io.github.Predidit.Kazumi.desktop $out/share/applications/io.github.Predidit.Kazumi.desktop
     install -Dm0644 ./assets/images/logo/logo_linux.png $out/share/icons/hicolor/512x512/apps/io.github.Predidit.Kazumi.png
-  '';
-
-  extraWrapProgramArgs = ''
-    --prefix PATH : ${lib.makeBinPath [ xdg-user-dirs ]}
   '';
 
   meta = {

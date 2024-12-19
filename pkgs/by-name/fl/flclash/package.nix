@@ -7,19 +7,18 @@
   buildGoModule,
   makeDesktopItem,
   copyDesktopItems,
-  zenity,
   wrapGAppsHook3,
   autoPatchelfHook,
 }:
 let
   pname = "flclash";
-  version = "0.8.69";
+  version = "0.8.70";
   src =
     (fetchFromGitHub {
       owner = "chen08209";
       repo = "FlClash";
       tag = "v${version}";
-      hash = "sha256-T9sqHzqnOvZG95EJegqT6TqOOrAuqzjNvVQWLyeQwng=";
+      hash = "sha256-6gDkRqbAGqwF+HCThWAHK0Jh/dxaYlnaYaAiXN48z5E=";
       fetchSubmodules = true;
     }).overrideAttrs
       (_: {
@@ -34,7 +33,7 @@ let
 
     vendorHash = "sha256-yam3DgY/dfwIRc7OvFltwX29x6xGlrrsK4Oj6oaGYRw=";
 
-    CGO_ENABLED = 0;
+    env.CGO_ENABLED = 0;
 
     buildPhase = ''
       runHook preBuild
@@ -95,10 +94,6 @@ flutter324.buildFlutterApplication {
 
   postInstall = ''
     install -Dm644 ./assets/images/icon.png $out/share/pixmaps/flclash.png
-  '';
-
-  extraWrapProgramArgs = ''
-    --prefix PATH : ${lib.makeBinPath [ zenity ]}
   '';
 
   meta = {
