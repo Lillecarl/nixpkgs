@@ -3452,6 +3452,8 @@ self: super: with self; {
 
   cx-freeze = callPackage ../development/python-modules/cx-freeze { };
 
+  cx-logging = callPackage ../development/python-modules/cx-logging { };
+
   cx-oracle = callPackage ../development/python-modules/cx-oracle { };
 
   cxxfilt = callPackage ../development/python-modules/cxxfilt { };
@@ -3637,8 +3639,6 @@ self: super: with self; {
   datasette-template-sql = callPackage ../development/python-modules/datasette-template-sql { };
 
   datashader = callPackage ../development/python-modules/datashader { };
-
-  datashape = callPackage ../development/python-modules/datashape { };
 
   datashaper = callPackage ../development/python-modules/datashaper { };
 
@@ -5892,6 +5892,8 @@ self: super: with self; {
 
   freetype-py = callPackage ../development/python-modules/freetype-py { };
 
+  freeze-core = callPackage ../development/python-modules/freeze-core { };
+
   freezegun = callPackage ../development/python-modules/freezegun { };
 
   frelatage = callPackage ../development/python-modules/frelatage { };
@@ -7472,6 +7474,8 @@ self: super: with self; {
   incomfort-client = callPackage ../development/python-modules/incomfort-client { };
 
   incremental = callPackage ../development/python-modules/incremental { };
+
+  indevolt-api = callPackage ../development/python-modules/indevolt-api { };
 
   indexed-bzip2 = callPackage ../development/python-modules/indexed-bzip2 { };
 
@@ -14097,6 +14101,8 @@ self: super: with self; {
   pylibrespot-java = callPackage ../development/python-modules/pylibrespot-java { };
 
   pylibsrtp = callPackage ../development/python-modules/pylibsrtp { };
+
+  pyliebherrhomeapi = callPackage ../development/python-modules/pyliebherrhomeapi { };
 
   pylink-square = callPackage ../development/python-modules/pylink-square { };
 
