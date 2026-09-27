@@ -1585,6 +1585,116 @@ let
     assertion: message: content:
     mkIf (if assertion then true else throw "\nFailed assertion: ${message}") content;
 
+  /**
+    Put a list of option definitions into one value.
+
+    Use `mkMerge` at any level of the configuration:
+
+    - As `config`. Each item is an attribute set of option definitions.
+    - On one attribute, such as `networking.firewall`. Each item sets options below that attribute.
+    - As the value of one option. Each item is one definition of that option.
+
+    Do not use `mkMerge` in `imports`. It is not a module.
+    Refer to [Merging Configurations](https://nixos.org/manual/nixos/unstable/#sec-option-definitions-merging).
+
+    # How the items merge
+
+    `mkMerge` does not merge the items.
+    The module system moves each item down to the options that the item sets.
+    It also moves a `mkIf` or `mkOverride` on an item down to each of these options.
+    Each result is one definition of its option:
+
+    ```nix
+    a = mkMerge [
+      { x = [ 1 ]; }
+      (mkIf cond { x = [ 2 ]; y = true; })
+    ];
+    # The module system reads this as three definitions:
+    #   a.x = [ 1 ];
+    #   a.x = mkIf cond [ 2 ];
+    #   a.y = mkIf cond true;
+    ```
+
+    These definitions join the definitions from all other modules.
+    Then the [option type](https://nixos.org/manual/nixos/unstable/#sec-option-types) merges all definitions of an option in one step.
+    Thus the items get no [priority](https://nixos.org/manual/nixos/unstable/#sec-option-definitions-setting-priorities) over other modules.
+    For example, `a.x = mkForce [ 3 ];` in another module removes both definitions of `a.x`.
+
+    # Common errors
+
+    Put `mkOverride` and `mkOrder` in `mkMerge`, not around it:
+
+    ```nix
+    # Correct:
+    mkMerge [ (mkForce [ 1 ]) (mkForce [ 2 ]) ]
+    # Type error. The option gets the mkMerge attribute set as its value:
+    mkForce (mkMerge [ [ 1 ] [ 2 ] ])
+    ```
+
+    Do not make the list from options below the attribute that `mkMerge` sets.
+    For `config`, this is all options.
+    Put each condition in a `mkIf` item.
+    Refer to [Delaying Conditionals](https://nixos.org/manual/nixos/unstable/#sec-option-definitions-delaying-conditionals).
+
+    ```nix
+    # Infinite recursion:
+    services.foo = mkMerge (optional config.services.foo.enable { port = 80; });
+    # Correct:
+    services.foo = mkMerge [ (mkIf config.services.foo.enable { port = 80; }) ];
+    ```
+
+    Do not use `//` on the result of `mkMerge`.
+    The module system ignores the added attributes and shows no error.
+    Add the attributes to the list instead.
+
+    # Inputs
+
+    `contents`
+
+    : List of definitions. An item can itself be a `mkMerge`, `mkIf`, `mkOverride` or `mkOrder`.
+
+    # Type
+
+    ```
+    mkMerge :: [ a ] -> AttrSet
+    ```
+
+    # Examples
+    :::{.example}
+    ## `lib.modules.mkMerge` usage example
+
+    ```nix
+    { config, lib, pkgs, ... }:
+    {
+      config = lib.mkMerge [
+        { environment.systemPackages = [ pkgs.git ]; }
+        (lib.mkIf config.services.nginx.enable {
+          networking.firewall.allowedTCPPorts = [ 80 443 ];
+        })
+      ];
+    }
+    ```
+
+    :::
+
+    :::{.example}
+    ## `lib.modules.mkMerge` on one attribute
+
+    ```nix
+    { config, lib, ... }:
+    {
+      networking.firewall = lib.mkMerge [
+        { allowedTCPPorts = [ 22 ]; }
+        (lib.mkIf config.services.nginx.enable {
+          allowedTCPPorts = [ 80 443 ];
+          allowedUDPPorts = [ 443 ];
+        })
+      ];
+    }
+    ```
+
+    :::
+  */
   mkMerge = contents: {
     _type = "merge";
     inherit contents;
