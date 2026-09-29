@@ -78,16 +78,16 @@ let
     );
 
   /**
-    See https://nixos.org/manual/nixpkgs/unstable/#module-system-lib-evalModules
-    or file://./../doc/module-system/module-system.chapter.md
-
-    !!! Please think twice before adding to this argument list! The more
-    that is specified here instead of in the modules themselves the harder
-    it is to transparently move a set of modules to be a submodule of another
-    config (as the proper arguments need to be replicated at each call to
-    evalModules) and the less declarative the module set is.
+    Evaluate a list of modules, and return their `options` and `config`.
+    Refer to [`lib.evalModules`](#module-system-lib-evalModules) in the Module System chapter.
   */
   evalModules =
+    # Please think twice before adding to this argument list! The more
+    # that is specified here instead of in the modules themselves the harder
+    # it is to transparently move a set of modules to be a submodule of another
+    # config (as the proper arguments need to be replicated at each call to
+    # evalModules) and the less declarative the module set is.
+    # Source for the documentation: doc/module-system/module-system.chapter.md
     evalModulesArgs@{
       modules,
       prefix ? [ ],
@@ -2023,17 +2023,21 @@ let
       (option: mkIf option.isDefined);
 
   /**
-    Compatibility.
+    Evaluate `modules` with [`evalModules`](#module-system-lib-evalModules), with `args` as module arguments and `check = false`.
+
+    Do not use it in new code.
+    It passes the `args` and `check` arguments of `evalModules`, and both cause a deprecation warning.
+    Use `evalModules`, and set `_module.args` and `_module.check` in a module instead.
 
     # Inputs
 
     `modules`
 
-    : 1\. Function argument
+    : A list of modules.
 
     `args`
 
-    : 2\. Function argument
+    : An attribute set of module arguments.
   */
   fixMergeModules =
     modules: args:
