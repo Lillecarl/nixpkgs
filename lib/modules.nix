@@ -78,16 +78,16 @@ let
     );
 
   /**
-    See https://nixos.org/manual/nixpkgs/unstable/#module-system-lib-evalModules
-    or file://./../doc/module-system/module-system.chapter.md
-
-    !!! Please think twice before adding to this argument list! The more
-    that is specified here instead of in the modules themselves the harder
-    it is to transparently move a set of modules to be a submodule of another
-    config (as the proper arguments need to be replicated at each call to
-    evalModules) and the less declarative the module set is.
+    Evaluate a list of modules, and return their `options` and `config`.
+    Refer to [`lib.evalModules`](#module-system-lib-evalModules) in the Module System chapter.
   */
   evalModules =
+    # Please think twice before adding to this argument list! The more
+    # that is specified here instead of in the modules themselves the harder
+    # it is to transparently move a set of modules to be a submodule of another
+    # config (as the proper arguments need to be replicated at each call to
+    # evalModules) and the less declarative the module set is.
+    # Source for the documentation: doc/module-system/module-system.chapter.md
     evalModulesArgs@{
       modules,
       prefix ? [ ],
@@ -1563,19 +1563,55 @@ let
     ) defsByAttr;
 
   /**
-    Properties.
+    Make a definition that applies only when `condition` is `true`.
+
+    The module system reads `condition` only after it collects all definitions.
+    Thus `condition` can use `config`, and a plain `if` cannot.
+    Refer to [Delaying Conditionals](https://nixos.org/manual/nixos/unstable/#sec-option-definitions-delaying-conditionals).
+
+    Use `mkIf` as `config`, on one attribute, or as the value of one option.
+    You can also use it as an item in `imports`.
+    If `condition` is `false`, the module system removes the definition and does not evaluate `content`.
+    The option keeps its other definitions, or its default.
+
+    `mkIf` has no `else`.
+    Use two `mkIf` items in [`mkMerge`](#function-library-lib.modules.mkMerge):
+
+    ```nix
+    mkMerge [ (mkIf cond a) (mkIf (!cond) b) ]
+    ```
+
+    Put `mkOverride` and `mkOrder` in `mkIf`, not around it: `mkIf cond (mkForce x)`.
 
     # Inputs
 
     `condition`
 
-    : 1\. Function argument
+    : A Boolean. Any other value causes an error.
 
     `content`
 
-    : 2\. Function argument
-  */
+    : The definition that applies when `condition` is `true`.
 
+    # Type
+
+    ```
+    mkIf :: Bool -> a -> AttrSet
+    ```
+
+    # Examples
+    :::{.example}
+    ## `lib.modules.mkIf` usage example
+
+    ```nix
+    { config, lib, ... }:
+    {
+      networking.firewall.allowedTCPPorts = lib.mkIf config.services.nginx.enable [ 80 443 ];
+    }
+    ```
+
+    :::
+  */
   mkIf = condition: content: {
     _type = "if";
     inherit condition content;
@@ -1585,6 +1621,116 @@ let
     assertion: message: content:
     mkIf (if assertion then true else throw "\nFailed assertion: ${message}") content;
 
+  /**
+    Put a list of option definitions into one value.
+
+    Use `mkMerge` at any level of the configuration:
+
+    - As `config`. Each item is an attribute set of option definitions.
+    - On one attribute, such as `networking.firewall`. Each item sets options below that attribute.
+    - As the value of one option. Each item is one definition of that option.
+
+    Do not use `mkMerge` in `imports`. It is not a module.
+    Refer to [Merging Configurations](https://nixos.org/manual/nixos/unstable/#sec-option-definitions-merging).
+
+    # How the items merge
+
+    `mkMerge` does not merge the items.
+    The module system moves each item down to the options that the item sets.
+    It also moves a `mkIf` or `mkOverride` on an item down to each of these options.
+    Each result is one definition of its option:
+
+    ```nix
+    a = mkMerge [
+      { x = [ 1 ]; }
+      (mkIf cond { x = [ 2 ]; y = true; })
+    ];
+    # The module system reads this as three definitions:
+    #   a.x = [ 1 ];
+    #   a.x = mkIf cond [ 2 ];
+    #   a.y = mkIf cond true;
+    ```
+
+    These definitions join the definitions from all other modules.
+    Then the [option type](https://nixos.org/manual/nixos/unstable/#sec-option-types) merges all definitions of an option in one step.
+    Thus the items get no [priority](https://nixos.org/manual/nixos/unstable/#sec-option-definitions-setting-priorities) over other modules.
+    For example, `a.x = mkForce [ 3 ];` in another module removes both definitions of `a.x`.
+
+    # Common errors
+
+    Put `mkOverride` and `mkOrder` in `mkMerge`, not around it:
+
+    ```nix
+    # Correct:
+    mkMerge [ (mkForce [ 1 ]) (mkForce [ 2 ]) ]
+    # Type error. The option gets the mkMerge attribute set as its value:
+    mkForce (mkMerge [ [ 1 ] [ 2 ] ])
+    ```
+
+    Do not make the list from options below the attribute that `mkMerge` sets.
+    For `config`, this is all options.
+    Put each condition in a `mkIf` item.
+    Refer to [Delaying Conditionals](https://nixos.org/manual/nixos/unstable/#sec-option-definitions-delaying-conditionals).
+
+    ```nix
+    # Infinite recursion:
+    services.foo = mkMerge (optional config.services.foo.enable { port = 80; });
+    # Correct:
+    services.foo = mkMerge [ (mkIf config.services.foo.enable { port = 80; }) ];
+    ```
+
+    Do not use `//` on the result of `mkMerge`.
+    The module system ignores the added attributes and shows no error.
+    Add the attributes to the list instead.
+
+    # Inputs
+
+    `contents`
+
+    : List of definitions. An item can itself be a `mkMerge`, `mkIf`, `mkOverride` or `mkOrder`.
+
+    # Type
+
+    ```
+    mkMerge :: [ a ] -> AttrSet
+    ```
+
+    # Examples
+    :::{.example}
+    ## `lib.modules.mkMerge` usage example
+
+    ```nix
+    { config, lib, pkgs, ... }:
+    {
+      config = lib.mkMerge [
+        { environment.systemPackages = [ pkgs.git ]; }
+        (lib.mkIf config.services.nginx.enable {
+          networking.firewall.allowedTCPPorts = [ 80 443 ];
+        })
+      ];
+    }
+    ```
+
+    :::
+
+    :::{.example}
+    ## `lib.modules.mkMerge` on one attribute
+
+    ```nix
+    { config, lib, ... }:
+    {
+      networking.firewall = lib.mkMerge [
+        { allowedTCPPorts = [ 22 ]; }
+        (lib.mkIf config.services.nginx.enable {
+          allowedTCPPorts = [ 80 443 ];
+          allowedUDPPorts = [ 443 ];
+        })
+      ];
+    }
+    ```
+
+    :::
+  */
   mkMerge = contents: {
     _type = "merge";
     inherit contents;
@@ -1595,20 +1741,135 @@ let
   */
   mkDefinition = args@{ file, value, ... }: args // { _type = "definition"; };
 
+  /**
+    Give a definition an override priority.
+    A lower number is a higher priority.
+
+    For each option, the module system keeps only the definitions with the highest priority.
+    It removes all other definitions, and the option type merges the remaining ones.
+    A definition without `mkOverride` has priority [`defaultOverridePriority`](#function-library-lib.modules.defaultOverridePriority) (100).
+    Refer to [Setting Priorities](https://nixos.org/manual/nixos/unstable/#sec-option-definitions-setting-priorities).
+
+    `mkOverride` applies to the value of one option, not to parts of it.
+    For example, `mkForce { a = 1; }` on an `attrsOf` option removes the attributes that other modules set.
+    To override one attribute, write `{ a = mkForce 1; }`.
+
+    Put `mkOverride` in `mkMerge` and `mkIf`, and put `mkOrder` in `mkOverride`:
+    `mkIf cond (mkForce (mkBefore x))`.
+
+    # Inputs
+
+    `priority`
+
+    : An integer. Common values have their own functions: [`mkForce`](#function-library-lib.modules.mkForce) (50), [`mkDefault`](#function-library-lib.modules.mkDefault) (1000) and [`mkOptionDefault`](#function-library-lib.modules.mkOptionDefault) (1500).
+
+    `content`
+
+    : The definition.
+
+    # Type
+
+    ```
+    mkOverride :: Int -> a -> AttrSet
+    ```
+
+    # Examples
+    :::{.example}
+    ## `lib.modules.mkOverride` usage example
+
+    ```nix
+    { lib, ... }:
+    {
+      # 40 is a higher priority than mkForce (50), so this definition wins over mkForce.
+      services.openssh.enable = lib.mkOverride 40 false;
+    }
+    ```
+
+    :::
+  */
   mkOverride = priority: content: {
     _type = "override";
     inherit priority content;
   };
 
-  mkOptionDefault = mkOverride 1500; # priority of option defaults
-  mkDefault = mkOverride 1000; # used in config sections of non-user modules to set a default
+  /**
+    `mkOverride 1500`. The module system gives the `default` of an option this priority.
+  */
+  mkOptionDefault = mkOverride 1500;
+
+  /**
+    `mkOverride 1000`. Use it for a value that users can change with a plain definition.
+    Modules use it to set a default for an option that they do not declare.
+  */
+  mkDefault = mkOverride 1000;
+
+  /**
+    The override priority of a definition without `mkOverride`: 100.
+  */
   defaultOverridePriority = 100;
-  mkImageMediaOverride = mkOverride 60; # image media profiles can be derived by inclusion into host config, hence needing to override host config, but do allow user to mkForce
+
+  /**
+    `mkOverride 60`. An image media profile, such as an installation ISO, can include a host configuration.
+    This priority lets the profile override the host, and lets the user override the profile with `mkForce`.
+  */
+  mkImageMediaOverride = mkOverride 60;
+
+  /**
+    `mkOverride 50`. Use it to replace the definitions from other modules.
+  */
   mkForce = mkOverride 50;
-  mkVMOverride = mkOverride 10; # used by ‘nixos-rebuild build-vm’
+
+  /**
+    `mkOverride 10`. `nixos-rebuild build-vm` uses it to override the configuration for the VM.
+  */
+  mkVMOverride = mkOverride 10;
 
   mkFixStrictness = warn "lib.mkFixStrictness has no effect and will be removed. It returns its argument unmodified, so you can just remove any calls." id;
 
+  /**
+    Give a definition an order priority.
+    The module system sorts the definitions of an option by this number, lowest first, before the option type merges them.
+    Definitions with the same number keep their order.
+    A definition without `mkOrder` has priority [`defaultOrderPriority`](#function-library-lib.modules.defaultOrderPriority) (1000).
+    Refer to [Ordering Definitions](https://nixos.org/manual/nixos/unstable/#sec-option-definitions-ordering).
+
+    `mkOrder` removes no definitions.
+    It changes the result only for a type that depends on order, such as `types.listOf` or `types.lines`.
+
+    Use `mkOrder` only on the value of one option.
+    The module system does not move it down from an attribute set: `config = mkAfter { ... }` fails.
+    Put `mkOrder` in `mkOverride`, `mkMerge` and `mkIf`: `mkIf cond (mkForce (mkBefore x))`.
+
+    # Inputs
+
+    `priority`
+
+    : An integer. Common values have their own functions: [`mkBefore`](#function-library-lib.modules.mkBefore) (500) and [`mkAfter`](#function-library-lib.modules.mkAfter) (1500).
+
+    `content`
+
+    : The definition.
+
+    # Type
+
+    ```
+    mkOrder :: Int -> a -> AttrSet
+    ```
+
+    # Examples
+    :::{.example}
+    ## `lib.modules.mkOrder` usage example
+
+    ```nix
+    { lib, pkgs, ... }:
+    {
+      # The module system puts this list before the definitions from other modules.
+      environment.systemPackages = lib.mkBefore [ pkgs.git ];
+    }
+    ```
+
+    :::
+  */
   mkOrder = priority: content: {
     _type = "order";
     inherit priority content;
@@ -1708,8 +1969,19 @@ let
       }
     ) opt.valueMeta.attrs;
 
+  /**
+    `mkOrder 500`. The definition comes before definitions without `mkOrder`.
+  */
   mkBefore = mkOrder 500;
+
+  /**
+    The order priority of a definition without `mkOrder`: 1000.
+  */
   defaultOrderPriority = 1000;
+
+  /**
+    `mkOrder 1500`. The definition comes after definitions without `mkOrder`.
+  */
   mkAfter = mkOrder 1500;
 
   # Convenient property used to transfer all definitions and their
@@ -1751,17 +2023,21 @@ let
       (option: mkIf option.isDefined);
 
   /**
-    Compatibility.
+    Evaluate `modules` with [`evalModules`](#module-system-lib-evalModules), with `args` as module arguments and `check = false`.
+
+    Do not use it in new code.
+    It passes the `args` and `check` arguments of `evalModules`, and both cause a deprecation warning.
+    Use `evalModules`, and set `_module.args` and `_module.check` in a module instead.
 
     # Inputs
 
     `modules`
 
-    : 1\. Function argument
+    : A list of modules.
 
     `args`
 
-    : 2\. Function argument
+    : An attribute set of module arguments.
   */
   fixMergeModules =
     modules: args:
