@@ -1563,19 +1563,55 @@ let
     ) defsByAttr;
 
   /**
-    Properties.
+    Make a definition that applies only when `condition` is `true`.
+
+    The module system reads `condition` only after it collects all definitions.
+    Thus `condition` can use `config`, and a plain `if` cannot.
+    Refer to [Delaying Conditionals](https://nixos.org/manual/nixos/unstable/#sec-option-definitions-delaying-conditionals).
+
+    Use `mkIf` as `config`, on one attribute, or as the value of one option.
+    You can also use it as an item in `imports`.
+    If `condition` is `false`, the module system removes the definition and does not evaluate `content`.
+    The option keeps its other definitions, or its default.
+
+    `mkIf` has no `else`.
+    Use two `mkIf` items in [`mkMerge`](#function-library-lib.modules.mkMerge):
+
+    ```nix
+    mkMerge [ (mkIf cond a) (mkIf (!cond) b) ]
+    ```
+
+    Put `mkOverride` and `mkOrder` in `mkIf`, not around it: `mkIf cond (mkForce x)`.
 
     # Inputs
 
     `condition`
 
-    : 1\. Function argument
+    : A Boolean. Any other value causes an error.
 
     `content`
 
-    : 2\. Function argument
-  */
+    : The definition that applies when `condition` is `true`.
 
+    # Type
+
+    ```
+    mkIf :: Bool -> a -> AttrSet
+    ```
+
+    # Examples
+    :::{.example}
+    ## `lib.modules.mkIf` usage example
+
+    ```nix
+    { config, lib, ... }:
+    {
+      networking.firewall.allowedTCPPorts = lib.mkIf config.services.nginx.enable [ 80 443 ];
+    }
+    ```
+
+    :::
+  */
   mkIf = condition: content: {
     _type = "if";
     inherit condition content;
