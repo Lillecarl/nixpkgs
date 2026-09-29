@@ -1741,20 +1741,135 @@ let
   */
   mkDefinition = args@{ file, value, ... }: args // { _type = "definition"; };
 
+  /**
+    Give a definition an override priority.
+    A lower number is a higher priority.
+
+    For each option, the module system keeps only the definitions with the highest priority.
+    It removes all other definitions, and the option type merges the remaining ones.
+    A definition without `mkOverride` has priority [`defaultOverridePriority`](#function-library-lib.modules.defaultOverridePriority) (100).
+    Refer to [Setting Priorities](https://nixos.org/manual/nixos/unstable/#sec-option-definitions-setting-priorities).
+
+    `mkOverride` applies to the value of one option, not to parts of it.
+    For example, `mkForce { a = 1; }` on an `attrsOf` option removes the attributes that other modules set.
+    To override one attribute, write `{ a = mkForce 1; }`.
+
+    Put `mkOverride` in `mkMerge` and `mkIf`, and put `mkOrder` in `mkOverride`:
+    `mkIf cond (mkForce (mkBefore x))`.
+
+    # Inputs
+
+    `priority`
+
+    : An integer. Common values have their own functions: [`mkForce`](#function-library-lib.modules.mkForce) (50), [`mkDefault`](#function-library-lib.modules.mkDefault) (1000) and [`mkOptionDefault`](#function-library-lib.modules.mkOptionDefault) (1500).
+
+    `content`
+
+    : The definition.
+
+    # Type
+
+    ```
+    mkOverride :: Int -> a -> AttrSet
+    ```
+
+    # Examples
+    :::{.example}
+    ## `lib.modules.mkOverride` usage example
+
+    ```nix
+    { lib, ... }:
+    {
+      # 40 is a higher priority than mkForce (50), so this definition wins over mkForce.
+      services.openssh.enable = lib.mkOverride 40 false;
+    }
+    ```
+
+    :::
+  */
   mkOverride = priority: content: {
     _type = "override";
     inherit priority content;
   };
 
-  mkOptionDefault = mkOverride 1500; # priority of option defaults
-  mkDefault = mkOverride 1000; # used in config sections of non-user modules to set a default
+  /**
+    `mkOverride 1500`. The module system gives the `default` of an option this priority.
+  */
+  mkOptionDefault = mkOverride 1500;
+
+  /**
+    `mkOverride 1000`. Use it for a value that users can change with a plain definition.
+    Modules use it to set a default for an option that they do not declare.
+  */
+  mkDefault = mkOverride 1000;
+
+  /**
+    The override priority of a definition without `mkOverride`: 100.
+  */
   defaultOverridePriority = 100;
-  mkImageMediaOverride = mkOverride 60; # image media profiles can be derived by inclusion into host config, hence needing to override host config, but do allow user to mkForce
+
+  /**
+    `mkOverride 60`. An image media profile, such as an installation ISO, can include a host configuration.
+    This priority lets the profile override the host, and lets the user override the profile with `mkForce`.
+  */
+  mkImageMediaOverride = mkOverride 60;
+
+  /**
+    `mkOverride 50`. Use it to replace the definitions from other modules.
+  */
   mkForce = mkOverride 50;
-  mkVMOverride = mkOverride 10; # used by ‘nixos-rebuild build-vm’
+
+  /**
+    `mkOverride 10`. `nixos-rebuild build-vm` uses it to override the configuration for the VM.
+  */
+  mkVMOverride = mkOverride 10;
 
   mkFixStrictness = warn "lib.mkFixStrictness has no effect and will be removed. It returns its argument unmodified, so you can just remove any calls." id;
 
+  /**
+    Give a definition an order priority.
+    The module system sorts the definitions of an option by this number, lowest first, before the option type merges them.
+    Definitions with the same number keep their order.
+    A definition without `mkOrder` has priority [`defaultOrderPriority`](#function-library-lib.modules.defaultOrderPriority) (1000).
+    Refer to [Ordering Definitions](https://nixos.org/manual/nixos/unstable/#sec-option-definitions-ordering).
+
+    `mkOrder` removes no definitions.
+    It changes the result only for a type that depends on order, such as `types.listOf` or `types.lines`.
+
+    Use `mkOrder` only on the value of one option.
+    The module system does not move it down from an attribute set: `config = mkAfter { ... }` fails.
+    Put `mkOrder` in `mkOverride`, `mkMerge` and `mkIf`: `mkIf cond (mkForce (mkBefore x))`.
+
+    # Inputs
+
+    `priority`
+
+    : An integer. Common values have their own functions: [`mkBefore`](#function-library-lib.modules.mkBefore) (500) and [`mkAfter`](#function-library-lib.modules.mkAfter) (1500).
+
+    `content`
+
+    : The definition.
+
+    # Type
+
+    ```
+    mkOrder :: Int -> a -> AttrSet
+    ```
+
+    # Examples
+    :::{.example}
+    ## `lib.modules.mkOrder` usage example
+
+    ```nix
+    { lib, pkgs, ... }:
+    {
+      # The module system puts this list before the definitions from other modules.
+      environment.systemPackages = lib.mkBefore [ pkgs.git ];
+    }
+    ```
+
+    :::
+  */
   mkOrder = priority: content: {
     _type = "order";
     inherit priority content;
@@ -1854,8 +1969,19 @@ let
       }
     ) opt.valueMeta.attrs;
 
+  /**
+    `mkOrder 500`. The definition comes before definitions without `mkOrder`.
+  */
   mkBefore = mkOrder 500;
+
+  /**
+    The order priority of a definition without `mkOrder`: 1000.
+  */
   defaultOrderPriority = 1000;
+
+  /**
+    `mkOrder 1500`. The definition comes after definitions without `mkOrder`.
+  */
   mkAfter = mkOrder 1500;
 
   # Convenient property used to transfer all definitions and their
