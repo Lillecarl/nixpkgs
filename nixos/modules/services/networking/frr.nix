@@ -277,6 +277,14 @@ in
 
       systemd.tmpfiles.rules = [ "d /run/frr 0755 frr frr -" ];
 
+      # networkd removes the routes and nexthops it did not configure each time it
+      # configures a link, zebra's among them, and zebra does not always install
+      # them again.
+      systemd.network.config.networkConfig = {
+        ManageForeignRoutes = lib.mkDefault false;
+        ManageForeignNextHops = lib.mkDefault false;
+      };
+
       systemd.services.frr = {
         description = "FRRouting";
         documentation = [ "https://frrouting.readthedocs.io/en/latest/setup.html" ];
